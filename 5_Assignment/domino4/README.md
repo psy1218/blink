@@ -4,6 +4,9 @@
 
 이 프로젝트는 Raspberry Pi5의 GPIO 핀 4개를 이용하여 LED 4개를 **1초 간격으로 순차 점등**하는 Bash 스크립트입니다.
 
+![domino](../../images/LED_domino.png)
+
+
 - 1번 LED → 2번 LED → 3번 LED → 4번 LED 순서로 켜졌다 꺼집니다.
 - 각 LED는 1초 동안 켜진 후 꺼지고, 다음 LED로 넘어갑니다.
 - 이 과정을 무한 반복합니다.
