@@ -3,7 +3,7 @@
 
 이 프로젝트는 Raspberry Pi의 3개 GPIO 핀에 연결된 LED들을 **자연스럽게 0~7까지 이진수 카운팅이 구현** 하는 Bash 스크립트입니다.
 
-![counter](../../images/3bit_counter.png)
+![counter](../../images/3Bit_counter.png)
 
 3개의 LED를 **2⁰, 2¹, 2²의 주기로 병렬 깜빡이게 하여 카운팅**합니다.
 - 각 LED는 아래와 같은 주기로 깜빡입니다:
