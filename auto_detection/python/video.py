@@ -7,7 +7,7 @@ import glob
 
 # === Serial 포트 설정 ===
 def auto_serial_connect():
-    candidates = glob.glob("/dev/ttyUSB*")
+    candidates = glob.glob("/dev/ttyACM*")
     for port in candidates:
         try:
             s = serial.Serial(port, 9600, timeout=1)
@@ -41,6 +41,8 @@ class PID:
 
     def compute(self, error):
         self.integral += error
+        self.integral = max(min(self.integral, 100), -100)
+
         derivative = error - self.last_error
         self.last_error = error
 
@@ -51,13 +53,13 @@ class PID:
         output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
         return output
 
-# PID 인스턴스
+# PID 인스턴a스
 pid = PID()
 
 # 카메라 설정
 yaho = Picamera2()
 config = yaho.create_video_configuration(
-    main={"size": (320, 240), "format": "RGB888"}
+    main={"size": (640, 480), "format": "RGB888"}  # ✅ 해상도 변경
 )
 yaho.configure(config)
 yaho.set_controls({"FrameDurationLimits": (16666, 16666)})
@@ -77,17 +79,18 @@ def generate():
     global prev_cx , ser
     
     while True:
-        frame = yaho.capture_array()
+        frame = yaho.capture_array("main")
         frame = cv2.flip(frame, 1)  # 좌우 반전
 
         # === ROI 설정 (범퍼 제외) ===
-        roi_y_start = 140
-        roi_y_end = 200
+        roi_y_start = 280
+        roi_y_end = 400
         roi = frame[roi_y_start:roi_y_end, :]
 
         # 전처리
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        blur = cv2.GaussianBlur(gray, (11, 11), 10)
+
 
         binary = cv2.adaptiveThreshold(blur, 255,
         cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY_INV,15,3)
@@ -112,25 +115,26 @@ def generate():
                 prev_cx = cx
 
                 # PID 조향값 계산
-                center_x = 160
+                center_x = 320
                 error = cx - center_x
                 steering = pid.compute(error)
                 steering = max(min(int(steering), 50), -50)  # -50~50 제한
 
                 # Serial 전송
                 try:
-                    #print(f"steering: {steering}, cx: {cx}, error: {error}")
+                    print(f"steering: {steering}, cx: {cx}, error: {error}")
                     ser.write(f"{steering}\n".encode())
+                    ser.flush()  
+                    time.sleep(0.01)  
                 except serial.SerialException as e:
-                    print(f"⚠️ Serial Write Error: {e}")
-                    ser = reconnect_serial()  # 🔁 포트 재연결 시도'
-                    continue  # 💡 다음 프레임으로 넘어가서 계속 유지되게!
-
+                    print(f"⚠️ Serial Error: {e}")
+                    try:
+                        ser.close()
+                    except:
+                        pass
+                    ser = auto_serial_connect()
+                    continue
                 
-                # 아두이노 응답 수신
-                #if ser.in_waiting:
-                #    line = ser.readline().decode().strip()
-                #    print("아두이노 응답:", line)
 
                 # 디버그 시각화
                 cy = roi_y_start + (roi_y_end - roi_y_start) // 2
@@ -140,7 +144,7 @@ def generate():
 
 
         # (선택) ROI 영역 시각화 - 노란 박스
-        cv2.rectangle(frame, (0, roi_y_start), (320, roi_y_end), (0, 255, 255), 2)
+        cv2.rectangle(frame, (0, roi_y_start), (640, roi_y_end), (0, 255, 255), 2)
 
         # 인코딩 및 전송
         ret, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
